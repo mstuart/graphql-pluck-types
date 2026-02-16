@@ -1,0 +1,47 @@
+{
+	"name": "graphql-pluck-types",
+	"version": "0.0.0-development",
+	"description": "Extract TypeScript interface definitions from a GraphQL schema SDL string",
+	"license": "MIT",
+	"repository": "mstuart/graphql-pluck-types",
+	"author": {
+		"name": "Mark Stuart",
+		"email": "mstuart@users.noreply.github.com",
+		"url": "https://github.com/mstuart"
+	},
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./index.d.ts",
+			"default": "./index.js"
+		}
+	},
+	"sideEffects": false,
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"keywords": [
+		"graphql",
+		"typescript",
+		"types",
+		"codegen",
+		"schema",
+		"sdl",
+		"interface",
+		"extract",
+		"pluck"
+	],
+	"devDependencies": {
+		"ava": "^6",
+		"tsd": "^0.31",
+		"xo": "^0.60"
+	},
+	"xo": {
+		"rules": {
+			"@typescript-eslint/naming-convention": "off"
+		}
+	}
+}
