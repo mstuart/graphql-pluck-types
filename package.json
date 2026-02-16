@@ -1,6 +1,6 @@
 {
 	"name": "graphql-pluck-types",
-	"version": "0.0.0-development",
+	"version": "1.0.0",
 	"description": "Extract TypeScript interface definitions from a GraphQL schema SDL string",
 	"license": "MIT",
 	"repository": "mstuart/graphql-pluck-types",
