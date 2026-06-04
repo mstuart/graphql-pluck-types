@@ -116,9 +116,7 @@ export default function pluckTypes(sdl, options = {}) {
 		const [, name, body] = match;
 		const fields = parseFields(body, scalars);
 
-		const fieldLines = fields.map(
-			field => `\t${field.name}: ${field.type};`,
-		);
+		const fieldLines = fields.map(field => `\t${field.name}: ${field.type};`);
 
 		output.push(`export interface ${name} {\n${fieldLines.join('\n')}\n}`);
 	}
@@ -130,9 +128,7 @@ export default function pluckTypes(sdl, options = {}) {
 		const [, name, body] = match;
 		const values = parseEnumValues(body);
 
-		const valueLines = values.map(
-			value => `\t${value} = '${value}',`,
-		);
+		const valueLines = values.map(value => `\t${value} = '${value}',`);
 
 		output.push(`export enum ${name} {\n${valueLines.join('\n')}\n}`);
 	}
