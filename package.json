@@ -35,9 +35,9 @@
 		"pluck"
 	],
 	"devDependencies": {
-		"ava": "^6",
-		"tsd": "^0.31",
-		"xo": "^0.60"
+		"ava": "^8",
+		"tsd": "^0.33",
+		"xo": "^2.0"
 	},
 	"xo": {
 		"rules": {
