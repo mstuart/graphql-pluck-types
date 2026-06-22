@@ -37,7 +37,7 @@
 	"devDependencies": {
 		"ava": "^8",
 		"tsd": "^0.33",
-		"xo": "^2.0"
+		"xo": "^3.0"
 	},
 	"xo": {
 		"rules": {
