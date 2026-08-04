@@ -74,7 +74,7 @@ function parseFields(body, scalars) {
 		}
 
 		// Match: fieldName: Type or fieldName(args): Type
-		const fieldMatch = /^(\w+)(?:\([^\)]*\))?\s*:\s*(.+)$/v.exec(trimmed);
+		const fieldMatch = /^(\w+)(?:\([^\)]*\))?\s*:(.+)$/v.exec(trimmed);
 		if (fieldMatch) {
 			const [, name, type] = fieldMatch;
 			fields.push({name, type: resolveType(type.trim(), scalars)});
