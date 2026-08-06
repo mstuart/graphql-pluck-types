@@ -20,10 +20,10 @@ function resolveType(typeString, scalars) {
 	const trimmed = typeString.trim();
 
 	// [Type!]!
-	const nonNullListMatch = /^\[(.+)]!$/.exec(trimmed);
+	const nonNullListMatch = /^\[(.+)\]!$/v.exec(trimmed);
 	if (nonNullListMatch) {
 		const inner = nonNullListMatch[1];
-		const nonNullInnerMatch = /^(.+)!$/.exec(inner);
+		const nonNullInnerMatch = /^(.+)!$/v.exec(inner);
 		if (nonNullInnerMatch) {
 			const resolved = resolveBaseType(nonNullInnerMatch[1], scalars);
 			return `${resolved}[]`;
@@ -34,10 +34,10 @@ function resolveType(typeString, scalars) {
 	}
 
 	// [Type!] or [Type]
-	const nullableListMatch = /^\[(.+)]$/.exec(trimmed);
+	const nullableListMatch = /^\[(.+)\]$/v.exec(trimmed);
 	if (nullableListMatch) {
 		const inner = nullableListMatch[1];
-		const nonNullInnerMatch = /^(.+)!$/.exec(inner);
+		const nonNullInnerMatch = /^(.+)!$/v.exec(inner);
 		if (nonNullInnerMatch) {
 			const resolved = resolveBaseType(nonNullInnerMatch[1], scalars);
 			return `${resolved}[] | null`;
@@ -48,7 +48,7 @@ function resolveType(typeString, scalars) {
 	}
 
 	// Type!
-	const nonNullMatch = /^(.+)!$/.exec(trimmed);
+	const nonNullMatch = /^(.+)!$/v.exec(trimmed);
 	if (nonNullMatch) {
 		return resolveBaseType(nonNullMatch[1], scalars);
 	}
@@ -74,7 +74,7 @@ function parseFields(body, scalars) {
 		}
 
 		// Match: fieldName: Type or fieldName(args): Type
-		const fieldMatch = /^(\w+)(?:\([^)]*\))?\s*:\s*(.+)$/.exec(trimmed);
+		const fieldMatch = /^(\w+)(?:\([^\)]*\))?\s*:\s*(.+)$/v.exec(trimmed);
 		if (fieldMatch) {
 			const [, name, type] = fieldMatch;
 			fields.push({name, type: resolveType(type.trim(), scalars)});
@@ -94,7 +94,7 @@ function parseEnumValues(body) {
 			continue;
 		}
 
-		const match = /^(\w+)/.exec(trimmed);
+		const match = /^(\w+)/v.exec(trimmed);
 		if (match) {
 			values.push(match[1]);
 		}
@@ -109,7 +109,7 @@ export default function pluckTypes(sdl, options = {}) {
 	const output = [];
 
 	// Match type blocks
-	const typePattern = /(?:type|input)\s+(\w+)\s*{([^}]*)}/g;
+	const typePattern = /(?:type|input)\s+(\w+)\s*\{([^\}]*)\}/gv;
 	let match;
 
 	while ((match = typePattern.exec(cleaned)) !== null) {
@@ -122,7 +122,7 @@ export default function pluckTypes(sdl, options = {}) {
 	}
 
 	// Match enum blocks
-	const enumPattern = /enum\s+(\w+)\s*{([^}]*)}/g;
+	const enumPattern = /enum\s+(\w+)\s*\{([^\}]*)\}/gv;
 
 	while ((match = enumPattern.exec(cleaned)) !== null) {
 		const [, name, body] = match;

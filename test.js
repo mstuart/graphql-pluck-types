@@ -44,8 +44,8 @@ test('non-null fields do not have null union', t => {
 	`;
 
 	const result = pluckTypes(sdl);
-	t.regex(result, /id: string;/);
-	t.regex(result, /name: string;/);
+	t.regex(result, /id: string;/v);
+	t.regex(result, /name: string;/v);
 	t.false(result.includes('id: string | null'));
 });
 
