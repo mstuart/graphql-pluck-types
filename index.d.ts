@@ -1,5 +1,5 @@
-export type PluckTypesOptions = {
-	/**
+export interface PluckTypesOptions {
+  /**
 	Custom scalar type mappings from GraphQL scalar names to TypeScript types.
 
 	@default {String: 'string', Int: 'number', Float: 'number', Boolean: 'boolean', ID: 'string'}
@@ -13,8 +13,8 @@ export type PluckTypesOptions = {
 	});
 	```
 	*/
-	readonly scalars?: Record<string, string>;
-};
+  readonly scalars?: Record<string, string>;
+}
 
 /**
 Extract TypeScript interface definitions from a GraphQL schema SDL string.
@@ -44,4 +44,7 @@ const ts = pluckTypes(sdl);
 // => 'export interface User {\n\tid: string;\n\tname: string;\n\temail: string | null;\n}\n\nexport enum Role {\n\tADMIN = \'ADMIN\',\n\tUSER = \'USER\',\n}\n'
 ```
 */
-export default function pluckTypes(sdl: string, options?: PluckTypesOptions): string;
+export default function pluckTypes(
+  sdl: string,
+  options?: PluckTypesOptions
+): string;
