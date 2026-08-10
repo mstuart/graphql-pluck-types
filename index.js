@@ -1,137 +1,140 @@
 const defaultScalars = {
-	String: 'string',
-	Int: 'number',
-	Float: 'number',
-	Boolean: 'boolean',
-	ID: 'string',
+  Boolean: "boolean",
+  Float: "number",
+  ID: "string",
+  Int: "number",
+  String: "string",
 };
 
+const ENUM_PATTERN = /enum\s+(\w+)\s*\{([^\}]*)\}/gv;
+const ENUM_VALUE_PATTERN = /^(\w+)/v;
+const FIELD_PATTERN = /^(\w+)(?:\([^\)]*\))?\s*:\s*(\S.*)$/v;
+const NON_NULL_INNER_PATTERN = /^(.+)!$/v;
+const NON_NULL_LIST_PATTERN = /^\[(.+)\]!$/v;
+const NULLABLE_LIST_PATTERN = /^\[(.+)\]$/v;
+const TYPE_PATTERN = /(?:type|input)\s+(\w+)\s*\{([^\}]*)\}/gv;
+
 function stripComments(sdl) {
-	return sdl
-		.split('\n')
-		.map(line => {
-			const commentIndex = line.indexOf('#');
-			return commentIndex === -1 ? line : line.slice(0, commentIndex);
-		})
-		.join('\n');
+  return sdl
+    .split("\n")
+    .map((line) => {
+      const commentIndex = line.indexOf("#");
+      return commentIndex === -1 ? line : line.slice(0, commentIndex);
+    })
+    .join("\n");
 }
 
 function resolveType(typeString, scalars) {
-	const trimmed = typeString.trim();
+  const trimmed = typeString.trim();
 
-	// [Type!]!
-	const nonNullListMatch = /^\[(.+)\]!$/v.exec(trimmed);
-	if (nonNullListMatch) {
-		const inner = nonNullListMatch[1];
-		const nonNullInnerMatch = /^(.+)!$/v.exec(inner);
-		if (nonNullInnerMatch) {
-			const resolved = resolveBaseType(nonNullInnerMatch[1], scalars);
-			return `${resolved}[]`;
-		}
+  // [Type!]!
+  const nonNullListMatch = NON_NULL_LIST_PATTERN.exec(trimmed);
+  if (nonNullListMatch) {
+    const [, inner] = nonNullListMatch;
+    const nonNullInnerMatch = NON_NULL_INNER_PATTERN.exec(inner);
+    if (nonNullInnerMatch) {
+      const resolved = resolveBaseType(nonNullInnerMatch[1], scalars);
+      return `${resolved}[]`;
+    }
 
-		const resolved = resolveBaseType(inner, scalars);
-		return `Array<${resolved} | null>`;
-	}
+    const resolved = resolveBaseType(inner, scalars);
+    return `Array<${resolved} | null>`;
+  }
 
-	// [Type!] or [Type]
-	const nullableListMatch = /^\[(.+)\]$/v.exec(trimmed);
-	if (nullableListMatch) {
-		const inner = nullableListMatch[1];
-		const nonNullInnerMatch = /^(.+)!$/v.exec(inner);
-		if (nonNullInnerMatch) {
-			const resolved = resolveBaseType(nonNullInnerMatch[1], scalars);
-			return `${resolved}[] | null`;
-		}
+  // [Type!] or [Type]
+  const nullableListMatch = NULLABLE_LIST_PATTERN.exec(trimmed);
+  if (nullableListMatch) {
+    const [, inner] = nullableListMatch;
+    const nonNullInnerMatch = NON_NULL_INNER_PATTERN.exec(inner);
+    if (nonNullInnerMatch) {
+      const resolved = resolveBaseType(nonNullInnerMatch[1], scalars);
+      return `${resolved}[] | null`;
+    }
 
-		const resolved = resolveBaseType(inner, scalars);
-		return `Array<${resolved} | null> | null`;
-	}
+    const resolved = resolveBaseType(inner, scalars);
+    return `Array<${resolved} | null> | null`;
+  }
 
-	// Type!
-	const nonNullMatch = /^(.+)!$/v.exec(trimmed);
-	if (nonNullMatch) {
-		return resolveBaseType(nonNullMatch[1], scalars);
-	}
+  // Type!
+  const nonNullMatch = NON_NULL_INNER_PATTERN.exec(trimmed);
+  if (nonNullMatch) {
+    return resolveBaseType(nonNullMatch[1], scalars);
+  }
 
-	// Type (nullable by default in GraphQL)
-	const resolved = resolveBaseType(trimmed, scalars);
-	return `${resolved} | null`;
+  // Type (nullable by default in GraphQL)
+  const resolved = resolveBaseType(trimmed, scalars);
+  return `${resolved} | null`;
 }
 
 function resolveBaseType(typeName, scalars) {
-	const trimmed = typeName.trim();
-	return scalars[trimmed] ?? trimmed;
+  const trimmed = typeName.trim();
+  return scalars[trimmed] ?? trimmed;
 }
 
 function parseFields(body, scalars) {
-	const fields = [];
-	const lines = body.split('\n');
+  const fields = [];
+  const lines = body.split("\n");
 
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (!trimmed || trimmed.startsWith('#')) {
-			continue;
-		}
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
 
-		// Match: fieldName: Type or fieldName(args): Type
-		const fieldMatch = /^(\w+)(?:\([^\)]*\))?\s*:\s*(.+)$/v.exec(trimmed);
-		if (fieldMatch) {
-			const [, name, type] = fieldMatch;
-			fields.push({name, type: resolveType(type.trim(), scalars)});
-		}
-	}
+    // Match: fieldName: Type or fieldName(args): Type
+    const fieldMatch = FIELD_PATTERN.exec(trimmed);
+    if (fieldMatch) {
+      const [, name, type] = fieldMatch;
+      fields.push({ name, type: resolveType(type.trim(), scalars) });
+    }
+  }
 
-	return fields;
+  return fields;
 }
 
 function parseEnumValues(body) {
-	const values = [];
-	const lines = body.split('\n');
+  const values = [];
+  const lines = body.split("\n");
 
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (!trimmed || trimmed.startsWith('#')) {
-			continue;
-		}
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
 
-		const match = /^(\w+)/v.exec(trimmed);
-		if (match) {
-			values.push(match[1]);
-		}
-	}
+    const match = ENUM_VALUE_PATTERN.exec(trimmed);
+    if (match) {
+      values.push(match[1]);
+    }
+  }
 
-	return values;
+  return values;
 }
 
 export default function pluckTypes(sdl, options = {}) {
-	const scalars = {...defaultScalars, ...options.scalars};
-	const cleaned = stripComments(sdl);
-	const output = [];
+  const scalars = { ...defaultScalars, ...options.scalars };
+  const cleaned = stripComments(sdl);
+  const output = [];
 
-	// Match type blocks
-	const typePattern = /(?:type|input)\s+(\w+)\s*\{([^\}]*)\}/gv;
-	let match;
+  // Match type blocks
+  for (const match of cleaned.matchAll(TYPE_PATTERN)) {
+    const [, name, body] = match;
+    const fields = parseFields(body, scalars);
 
-	while ((match = typePattern.exec(cleaned)) !== null) {
-		const [, name, body] = match;
-		const fields = parseFields(body, scalars);
+    const fieldLines = fields.map((field) => `\t${field.name}: ${field.type};`);
 
-		const fieldLines = fields.map(field => `\t${field.name}: ${field.type};`);
+    output.push(`export interface ${name} {\n${fieldLines.join("\n")}\n}`);
+  }
 
-		output.push(`export interface ${name} {\n${fieldLines.join('\n')}\n}`);
-	}
+  // Match enum blocks
+  for (const match of cleaned.matchAll(ENUM_PATTERN)) {
+    const [, name, body] = match;
+    const values = parseEnumValues(body);
 
-	// Match enum blocks
-	const enumPattern = /enum\s+(\w+)\s*\{([^\}]*)\}/gv;
+    const valueLines = values.map((value) => `\t${value} = '${value}',`);
 
-	while ((match = enumPattern.exec(cleaned)) !== null) {
-		const [, name, body] = match;
-		const values = parseEnumValues(body);
+    output.push(`export enum ${name} {\n${valueLines.join("\n")}\n}`);
+  }
 
-		const valueLines = values.map(value => `\t${value} = '${value}',`);
-
-		output.push(`export enum ${name} {\n${valueLines.join('\n')}\n}`);
-	}
-
-	return output.join('\n\n') + '\n';
+  return `${output.join("\n\n")}\n`;
 }
