@@ -8,7 +8,7 @@ const defaultScalars = {
 
 const ENUM_PATTERN = /enum\s+(\w+)\s*\{([^\}]*)\}/gv;
 const ENUM_VALUE_PATTERN = /^(\w+)/v;
-const FIELD_PATTERN = /^(\w+)(?:\([^\)]*\))?\s*:\s*(.+)$/v;
+const FIELD_PATTERN = /^(\w+)(?:\([^\)]*\))?\s*:\s*(\S.*)$/v;
 const NON_NULL_INNER_PATTERN = /^(.+)!$/v;
 const NON_NULL_LIST_PATTERN = /^\[(.+)\]!$/v;
 const NULLABLE_LIST_PATTERN = /^\[(.+)\]$/v;
