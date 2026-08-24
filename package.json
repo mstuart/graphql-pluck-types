@@ -38,10 +38,10 @@
     "test": "ava && tsd"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.8",
+    "@biomejs/biome": "2.5.9",
     "ava": "^8",
     "tsd": "^0.33",
-    "ultracite": "7.10.4"
+    "ultracite": "7.10.6"
   },
   "engines": {
     "node": ">=22"
