@@ -10,7 +10,7 @@
   <a href="https://www.npmjs.com/package/graphql-pluck-types"><img src="https://img.shields.io/npm/v/graphql-pluck-types?label=npm" alt="npm"></a>
   <a href="https://deepwiki.com/mstuart/graphql-pluck-types"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   <a href="https://socket.dev/npm/package/graphql-pluck-types"><img src="https://socket.dev/api/badge/npm/package/graphql-pluck-types" alt="Socket"></a>
-  <img src="https://img.shields.io/badge/node-%E2%89%A520-339933.svg" alt="Node 20+">
+  <img src="https://img.shields.io/badge/node-%E2%89%A522-339933.svg" alt="Node 22+">
 </p>
 
 ---
