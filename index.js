@@ -6,7 +6,6 @@ const defaultScalars = {
   String: "string",
 };
 
-const ENUM_VALUE_PATTERN = /^(\w+)/v;
 const DEFINITION_KINDS = new Set(["enum", "input", "type"]);
 const FIELD_PUNCTUATION = new Set([
   "!",
@@ -356,17 +355,20 @@ function parseDefinitions(source) {
 
 function parseEnumValues(body) {
   const values = [];
-  const lines = body.split("\n");
+  const tokens = tokenizeFields(body);
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    const value = tokens[index];
+    if (value === "@") {
+      const argumentStart = index + 2;
+      index =
+        (tokens[argumentStart] === "("
+          ? skipParenthesized(tokens, argumentStart)
+          : argumentStart) - 1;
       continue;
     }
-
-    const match = ENUM_VALUE_PATTERN.exec(trimmed);
-    if (match) {
-      values.push(match[1]);
+    if (NAME_TOKEN_PATTERN.test(value)) {
+      values.push(value);
     }
   }
 

@@ -209,6 +209,18 @@ test("extracts enum with single value", (t) => {
   t.true(result.includes("ACTIVE = 'ACTIVE',"));
 });
 
+test("extracts compact enum values and skips directives", (t) => {
+  const result = pluckTypes(
+    'enum Role { ADMIN USER @deprecated(reason: "legacy") GUEST }'
+  );
+
+  t.true(result.includes("ADMIN = 'ADMIN',"));
+  t.true(result.includes("USER = 'USER',"));
+  t.true(result.includes("GUEST = 'GUEST',"));
+  t.false(result.includes("deprecated ="));
+  t.false(result.includes("reason ="));
+});
+
 // Input types
 
 test("extracts input types as interfaces", (t) => {
