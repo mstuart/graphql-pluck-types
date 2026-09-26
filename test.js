@@ -36,6 +36,75 @@ test("extracts multiple types", (t) => {
   t.true(result.includes("export interface Post"));
 });
 
+test("extracts multiple fields from compact SDL", (t) => {
+  const result = pluckTypes(
+    "type User { id: ID! name: String! email: String }"
+  );
+
+  t.true(result.includes("id: string;"));
+  t.true(result.includes("name: string;"));
+  t.true(result.includes("email: string | null;"));
+  t.false(result.includes("ID! name:"));
+});
+
+test("extracts compact fields with arguments and directives", (t) => {
+  const result = pluckTypes(
+    'type Query { user(id: ID!): User @deprecated(reason: "legacy") users: [User!]! }'
+  );
+
+  t.true(result.includes("user: User | null;"));
+  t.true(result.includes("users: User[];"));
+  t.false(result.includes("reason:"));
+});
+
+test("skips object-valued input defaults", (t) => {
+  const result = pluckTypes(`
+    input Preferences {
+      settings: Settings = { mode: FAST }
+      enabled: Boolean!
+    }
+  `);
+
+  t.true(result.includes("settings: Settings | null;"));
+  t.true(result.includes("enabled: boolean;"));
+  t.false(result.includes("mode:"));
+});
+
+test("preserves hashes in directive strings", (t) => {
+  const result = pluckTypes(`
+    type Query {
+      old: String @deprecated(reason: "use #new")
+      current: String!
+    }
+  `);
+
+  t.true(result.includes("old: string | null;"));
+  t.true(result.includes("current: string;"));
+});
+
+test("ignores escaped triple quotes and field-like block string content", (t) => {
+  const result = pluckTypes(String.raw`
+    type User {
+      """Use \""" here; fake: String is still description text."""
+      id: ID!
+    }
+  `);
+
+  t.true(result.includes("id: string;"));
+  t.false(result.includes("fake:"));
+});
+
+test("recognizes definition keywords only in definition positions", (t) => {
+  const result = pluckTypes(`
+    scalar type
+    type Query { ok: String! }
+  `);
+
+  t.true(result.includes("export interface Query"));
+  t.true(result.includes("ok: string;"));
+  t.false(result.includes("export interface type"));
+});
+
 // Required fields (!)
 
 test("non-null fields do not have null union", (t) => {
