@@ -281,6 +281,92 @@ function readBracedBody(source, start) {
   }
 }
 
+function skipParenthesizedSource(source, start) {
+  let cursor = start;
+  let depth = 0;
+
+  while (cursor < source.length) {
+    if (source[cursor] === '"') {
+      cursor = skipQuotedString(source, cursor);
+    } else if (source[cursor] === "(") {
+      depth += 1;
+      cursor += 1;
+    } else if (source[cursor] === ")") {
+      depth -= 1;
+      cursor += 1;
+      if (depth === 0) {
+        return cursor;
+      }
+    } else {
+      cursor += 1;
+    }
+  }
+}
+
+function skipDirective(source, start) {
+  const name = readName(source, start + 1);
+  if (!name) {
+    return;
+  }
+
+  const cursor = skipWhitespace(source, name.cursor);
+  return source[cursor] === "("
+    ? skipParenthesizedSource(source, cursor)
+    : cursor;
+}
+
+function skipImplementsClause(source, start) {
+  const clause = readName(source, start);
+  if (clause?.value !== "implements") {
+    return start;
+  }
+
+  let cursor = skipWhitespace(source, clause.cursor);
+  if (source[cursor] === "&") {
+    cursor = skipWhitespace(source, cursor + 1);
+  }
+
+  const firstInterface = readName(source, cursor);
+  if (!firstInterface) {
+    return;
+  }
+  const { cursor: firstInterfaceCursor } = firstInterface;
+  cursor = skipWhitespace(source, firstInterfaceCursor);
+
+  while (source[cursor] === "&") {
+    const interfaceName = readName(source, skipWhitespace(source, cursor + 1));
+    if (!interfaceName) {
+      return;
+    }
+    const { cursor: interfaceCursor } = interfaceName;
+    cursor = skipWhitespace(source, interfaceCursor);
+  }
+
+  return cursor;
+}
+
+function readDefinitionOpening(source, start, kind) {
+  let cursor = skipWhitespace(source, start);
+
+  if (kind === "type") {
+    const next = skipImplementsClause(source, cursor);
+    if (next === undefined) {
+      return;
+    }
+    cursor = next;
+  }
+
+  while (source[cursor] === "@") {
+    const next = skipDirective(source, cursor);
+    if (next === undefined) {
+      return;
+    }
+    cursor = skipWhitespace(source, next);
+  }
+
+  return source[cursor] === "{" ? cursor : undefined;
+}
+
 function parseDefinitions(source) {
   const definitions = [];
   let cursor = 0;
@@ -302,7 +388,9 @@ function parseDefinitions(source) {
     }
 
     const name = readName(source, skipWhitespace(source, cursor));
-    const opening = name && skipWhitespace(source, name.cursor);
+    const opening = name
+      ? readDefinitionOpening(source, name.cursor, kindValue)
+      : undefined;
     const block =
       opening !== undefined && source[opening] === "{"
         ? readBracedBody(source, opening)

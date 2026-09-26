@@ -105,6 +105,27 @@ test("recognizes definition keywords only in definition positions", (t) => {
   t.false(result.includes("export interface type"));
 });
 
+test("extracts types with implements clauses and directives", (t) => {
+  const result = pluckTypes(`
+    type User implements & Node @key(fields: "id") {
+      id: ID!
+    }
+    input UserFilter @oneOf {
+      id: ID
+    }
+    enum Role @tag(name: "access") {
+      ADMIN
+    }
+  `);
+
+  t.true(result.includes("export interface User"));
+  t.true(result.includes("id: string;"));
+  t.true(result.includes("export interface UserFilter"));
+  t.true(result.includes("id: string | null;"));
+  t.true(result.includes("export enum Role"));
+  t.true(result.includes("ADMIN = 'ADMIN',"));
+});
+
 // Required fields (!)
 
 test("non-null fields do not have null union", (t) => {
