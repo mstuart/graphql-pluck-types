@@ -94,6 +94,17 @@ test("ignores escaped triple quotes and field-like block string content", (t) =>
   t.false(result.includes("fake:"));
 });
 
+test("recognizes definition keywords only in definition positions", (t) => {
+  const result = pluckTypes(`
+    scalar type
+    type Query { ok: String! }
+  `);
+
+  t.true(result.includes("export interface Query"));
+  t.true(result.includes("ok: string;"));
+  t.false(result.includes("export interface type"));
+});
+
 // Required fields (!)
 
 test("non-null fields do not have null union", (t) => {

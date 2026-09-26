@@ -296,19 +296,6 @@ function readName(source, start) {
   return { cursor, value: source.slice(start, cursor) };
 }
 
-function findOpeningBrace(source, start) {
-  let cursor = start;
-  while (cursor < source.length) {
-    if (source[cursor] === '"') {
-      cursor = skipQuotedString(source, cursor);
-    } else if (source[cursor] === "{") {
-      return cursor;
-    } else {
-      cursor += 1;
-    }
-  }
-}
-
 function readBracedBody(source, start) {
   let cursor = start + 1;
   let depth = 1;
@@ -351,9 +338,11 @@ function parseDefinitions(source) {
     }
 
     const name = readName(source, skipWhitespace(source, cursor));
-    const opening = name && findOpeningBrace(source, name.cursor);
+    const opening = name && skipWhitespace(source, name.cursor);
     const block =
-      opening === undefined ? undefined : readBracedBody(source, opening);
+      opening !== undefined && source[opening] === "{"
+        ? readBracedBody(source, opening)
+        : undefined;
     if (name && block) {
       const { cursor: blockCursor, body } = block;
       const { value: nameValue } = name;
