@@ -8,8 +8,7 @@ const defaultScalars = {
 
 const ENUM_PATTERN = /enum\s+(\w+)\s*\{([^\}]*)\}/gv;
 const ENUM_VALUE_PATTERN = /^(\w+)/v;
-const FIELD_TOKEN_PATTERN =
-  /"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|[_A-Za-z][_0-9A-Za-z]*|!|\(|\)|:|@|\[|\]/gv;
+const FIELD_PUNCTUATION = new Set(["!", "(", ")", ":", "@", "[", "]"]);
 const NAME_TOKEN_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/v;
 const NON_NULL_INNER_PATTERN = /^(.+)!$/v;
 const NON_NULL_LIST_PATTERN = /^\[(.+)\]!$/v;
@@ -73,6 +72,64 @@ function resolveBaseType(typeName, scalars) {
   return scalars[trimmed] ?? trimmed;
 }
 
+function isNameStart(character) {
+  const code = character?.codePointAt(0) ?? 0;
+  return (
+    character === "_" ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122)
+  );
+}
+
+function isNameContinuation(character) {
+  const code = character?.codePointAt(0) ?? 0;
+  return isNameStart(character) || (code >= 48 && code <= 57);
+}
+
+function skipQuotedString(body, start) {
+  const block = body.startsWith('"""', start);
+  let cursor = start + (block ? 3 : 1);
+  const terminator = block ? '"""' : '"';
+
+  while (cursor < body.length) {
+    if (body[cursor] === "\\") {
+      cursor += 2;
+    } else if (body.startsWith(terminator, cursor)) {
+      return cursor + terminator.length;
+    } else {
+      cursor += 1;
+    }
+  }
+
+  return cursor;
+}
+
+function tokenizeFields(body) {
+  const tokens = [];
+  let cursor = 0;
+
+  while (cursor < body.length) {
+    const character = body[cursor];
+    if (character === '"') {
+      cursor = skipQuotedString(body, cursor);
+    } else if (isNameStart(character)) {
+      const start = cursor;
+      cursor += 1;
+      while (isNameContinuation(body[cursor])) {
+        cursor += 1;
+      }
+      tokens.push(body.slice(start, cursor));
+    } else {
+      if (FIELD_PUNCTUATION.has(character)) {
+        tokens.push(character);
+      }
+      cursor += 1;
+    }
+  }
+
+  return tokens;
+}
+
 function skipParenthesized(tokens, start) {
   let cursor = start;
   let depth = 0;
@@ -120,9 +177,7 @@ function readFieldType(tokens, start) {
 
 function parseFields(body, scalars) {
   const fields = [];
-  const tokens = [...body.matchAll(FIELD_TOKEN_PATTERN)].map(
-    (match) => match[0]
-  );
+  const tokens = tokenizeFields(body);
 
   for (let index = 0; index < tokens.length; index += 1) {
     const name = tokens[index];
