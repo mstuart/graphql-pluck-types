@@ -6,23 +6,45 @@ const defaultScalars = {
   String: "string",
 };
 
-const ENUM_PATTERN = /enum\s+(\w+)\s*\{([^\}]*)\}/gv;
 const ENUM_VALUE_PATTERN = /^(\w+)/v;
-const FIELD_PUNCTUATION = new Set(["!", "(", ")", ":", "@", "[", "]"]);
+const DEFINITION_KINDS = new Set(["enum", "input", "type"]);
+const FIELD_PUNCTUATION = new Set([
+  "!",
+  "(",
+  ")",
+  ":",
+  "=",
+  "@",
+  "[",
+  "]",
+  "{",
+  "}",
+]);
 const NAME_TOKEN_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/v;
+const WHITESPACE_PATTERN = /\s/v;
 const NON_NULL_INNER_PATTERN = /^(.+)!$/v;
 const NON_NULL_LIST_PATTERN = /^\[(.+)\]!$/v;
 const NULLABLE_LIST_PATTERN = /^\[(.+)\]$/v;
-const TYPE_PATTERN = /(?:type|input)\s+(\w+)\s*\{([^\}]*)\}/gv;
 
 function stripComments(sdl) {
-  return sdl
-    .split("\n")
-    .map((line) => {
-      const commentIndex = line.indexOf("#");
-      return commentIndex === -1 ? line : line.slice(0, commentIndex);
-    })
-    .join("\n");
+  let cleaned = "";
+  let cursor = 0;
+
+  while (cursor < sdl.length) {
+    if (sdl[cursor] === '"') {
+      const end = skipQuotedString(sdl, cursor);
+      cleaned += sdl.slice(cursor, end);
+      cursor = end;
+    } else if (sdl[cursor] === "#") {
+      const newline = sdl.indexOf("\n", cursor);
+      cursor = newline === -1 ? sdl.length : newline;
+    } else {
+      cleaned += sdl[cursor];
+      cursor += 1;
+    }
+  }
+
+  return cleaned;
 }
 
 function resolveType(typeString, scalars) {
@@ -86,6 +108,23 @@ function isNameContinuation(character) {
   return isNameStart(character) || (code >= 48 && code <= 57);
 }
 
+function isNumberStart(character) {
+  const code = character?.codePointAt(0) ?? 0;
+  return character === "-" || (code >= 48 && code <= 57);
+}
+
+function isNumberContinuation(character) {
+  const code = character?.codePointAt(0) ?? 0;
+  return (
+    character === "+" ||
+    character === "-" ||
+    character === "." ||
+    character === "E" ||
+    character === "e" ||
+    (code >= 48 && code <= 57)
+  );
+}
+
 function skipQuotedString(body, start) {
   const block = body.startsWith('"""', start);
   let cursor = start + (block ? 3 : 1);
@@ -112,10 +151,18 @@ function tokenizeFields(body) {
     const character = body[cursor];
     if (character === '"') {
       cursor = skipQuotedString(body, cursor);
+      tokens.push('"');
     } else if (isNameStart(character)) {
       const start = cursor;
       cursor += 1;
       while (isNameContinuation(body[cursor])) {
+        cursor += 1;
+      }
+      tokens.push(body.slice(start, cursor));
+    } else if (isNumberStart(character)) {
+      const start = cursor;
+      cursor += 1;
+      while (isNumberContinuation(body[cursor])) {
         cursor += 1;
       }
       tokens.push(body.slice(start, cursor));
@@ -130,13 +177,13 @@ function tokenizeFields(body) {
   return tokens;
 }
 
-function skipParenthesized(tokens, start) {
+function skipBalanced(tokens, start, opening, closing) {
   let cursor = start;
   let depth = 0;
   while (cursor < tokens.length) {
-    if (tokens[cursor] === "(") {
+    if (tokens[cursor] === opening) {
       depth += 1;
-    } else if (tokens[cursor] === ")") {
+    } else if (tokens[cursor] === closing) {
       depth -= 1;
       if (depth === 0) {
         return cursor + 1;
@@ -145,6 +192,20 @@ function skipParenthesized(tokens, start) {
     cursor += 1;
   }
   return cursor;
+}
+
+function skipParenthesized(tokens, start) {
+  return skipBalanced(tokens, start, "(", ")");
+}
+
+function skipDefaultValue(tokens, start) {
+  if (tokens[start] === "{") {
+    return skipBalanced(tokens, start, "{", "}");
+  }
+  if (tokens[start] === "[") {
+    return skipBalanced(tokens, start, "[", "]");
+  }
+  return Math.min(start + 1, tokens.length);
 }
 
 function readFieldType(tokens, start) {
@@ -205,11 +266,103 @@ function parseFields(body, scalars) {
     const fieldType = readFieldType(tokens, cursor + 1);
     if (fieldType) {
       fields.push({ name, type: resolveType(fieldType.type, scalars) });
-      index = fieldType.cursor - 1;
+      const next =
+        tokens[fieldType.cursor] === "="
+          ? skipDefaultValue(tokens, fieldType.cursor + 1)
+          : fieldType.cursor;
+      index = next - 1;
     }
   }
 
   return fields;
+}
+
+function skipWhitespace(source, start) {
+  let cursor = start;
+  while (WHITESPACE_PATTERN.test(source[cursor] ?? "")) {
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function readName(source, start) {
+  if (!isNameStart(source[start])) {
+    return;
+  }
+  let cursor = start + 1;
+  while (isNameContinuation(source[cursor])) {
+    cursor += 1;
+  }
+  return { cursor, value: source.slice(start, cursor) };
+}
+
+function findOpeningBrace(source, start) {
+  let cursor = start;
+  while (cursor < source.length) {
+    if (source[cursor] === '"') {
+      cursor = skipQuotedString(source, cursor);
+    } else if (source[cursor] === "{") {
+      return cursor;
+    } else {
+      cursor += 1;
+    }
+  }
+}
+
+function readBracedBody(source, start) {
+  let cursor = start + 1;
+  let depth = 1;
+  while (cursor < source.length) {
+    if (source[cursor] === '"') {
+      cursor = skipQuotedString(source, cursor);
+    } else if (source[cursor] === "{") {
+      depth += 1;
+      cursor += 1;
+    } else if (source[cursor] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return { body: source.slice(start + 1, cursor), cursor: cursor + 1 };
+      }
+      cursor += 1;
+    } else {
+      cursor += 1;
+    }
+  }
+}
+
+function parseDefinitions(source) {
+  const definitions = [];
+  let cursor = 0;
+
+  while (cursor < source.length) {
+    if (source[cursor] === '"') {
+      cursor = skipQuotedString(source, cursor);
+      continue;
+    }
+    const kind = readName(source, cursor);
+    if (!kind) {
+      cursor += 1;
+      continue;
+    }
+    const { cursor: kindCursor, value: kindValue } = kind;
+    cursor = kindCursor;
+    if (!DEFINITION_KINDS.has(kindValue)) {
+      continue;
+    }
+
+    const name = readName(source, skipWhitespace(source, cursor));
+    const opening = name && findOpeningBrace(source, name.cursor);
+    const block =
+      opening === undefined ? undefined : readBracedBody(source, opening);
+    if (name && block) {
+      const { cursor: blockCursor, body } = block;
+      const { value: nameValue } = name;
+      definitions.push({ body, kind: kindValue, name: nameValue });
+      cursor = blockCursor;
+    }
+  }
+
+  return definitions;
 }
 
 function parseEnumValues(body) {
@@ -234,11 +387,14 @@ function parseEnumValues(body) {
 export default function pluckTypes(sdl, options = {}) {
   const scalars = { ...defaultScalars, ...options.scalars };
   const cleaned = stripComments(sdl);
+  const definitions = parseDefinitions(cleaned);
   const output = [];
 
   // Match type blocks
-  for (const match of cleaned.matchAll(TYPE_PATTERN)) {
-    const [, name, body] = match;
+  for (const { body, kind, name } of definitions) {
+    if (kind === "enum") {
+      continue;
+    }
     const fields = parseFields(body, scalars);
 
     const fieldLines = fields.map((field) => `\t${field.name}: ${field.type};`);
@@ -247,8 +403,10 @@ export default function pluckTypes(sdl, options = {}) {
   }
 
   // Match enum blocks
-  for (const match of cleaned.matchAll(ENUM_PATTERN)) {
-    const [, name, body] = match;
+  for (const { body, kind, name } of definitions) {
+    if (kind !== "enum") {
+      continue;
+    }
     const values = parseEnumValues(body);
 
     const valueLines = values.map((value) => `\t${value} = '${value}',`);

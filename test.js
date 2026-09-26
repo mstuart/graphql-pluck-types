@@ -57,6 +57,43 @@ test("extracts compact fields with arguments and directives", (t) => {
   t.false(result.includes("reason:"));
 });
 
+test("skips object-valued input defaults", (t) => {
+  const result = pluckTypes(`
+    input Preferences {
+      settings: Settings = { mode: FAST }
+      enabled: Boolean!
+    }
+  `);
+
+  t.true(result.includes("settings: Settings | null;"));
+  t.true(result.includes("enabled: boolean;"));
+  t.false(result.includes("mode:"));
+});
+
+test("preserves hashes in directive strings", (t) => {
+  const result = pluckTypes(`
+    type Query {
+      old: String @deprecated(reason: "use #new")
+      current: String!
+    }
+  `);
+
+  t.true(result.includes("old: string | null;"));
+  t.true(result.includes("current: string;"));
+});
+
+test("ignores escaped triple quotes and field-like block string content", (t) => {
+  const result = pluckTypes(String.raw`
+    type User {
+      """Use \""" here; fake: String is still description text."""
+      id: ID!
+    }
+  `);
+
+  t.true(result.includes("id: string;"));
+  t.false(result.includes("fake:"));
+});
+
 // Required fields (!)
 
 test("non-null fields do not have null union", (t) => {
