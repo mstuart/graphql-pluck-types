@@ -180,6 +180,22 @@ test("handles nullable list of nullable items [Type]", (t) => {
   t.true(result.includes("tags: Array<string | null> | null;"));
 });
 
+test("handles nested list types", (t) => {
+  const result = pluckTypes(`
+    type Matrix {
+      required: [[Int!]!]!
+      nullableRows: [[String!]]!
+      nullable: [[Boolean]]
+    }
+  `);
+
+  t.true(result.includes("required: number[][];"));
+  t.true(result.includes("nullableRows: Array<string[] | null>;"));
+  t.true(
+    result.includes("nullable: Array<Array<boolean | null> | null> | null;")
+  );
+});
+
 // Enums
 
 test("extracts enums", (t) => {
