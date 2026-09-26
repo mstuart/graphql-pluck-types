@@ -8,7 +8,9 @@ const defaultScalars = {
 
 const ENUM_PATTERN = /enum\s+(\w+)\s*\{([^\}]*)\}/gv;
 const ENUM_VALUE_PATTERN = /^(\w+)/v;
-const FIELD_PATTERN = /^(\w+)(?:\([^\)]*\))?\s*:\s*(\S.*)$/v;
+const FIELD_TOKEN_PATTERN =
+  /"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|[_A-Za-z][_0-9A-Za-z]*|!|\(|\)|:|@|\[|\]/gv;
+const NAME_TOKEN_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/v;
 const NON_NULL_INNER_PATTERN = /^(.+)!$/v;
 const NON_NULL_LIST_PATTERN = /^\[(.+)\]!$/v;
 const NULLABLE_LIST_PATTERN = /^\[(.+)\]$/v;
@@ -71,21 +73,84 @@ function resolveBaseType(typeName, scalars) {
   return scalars[trimmed] ?? trimmed;
 }
 
+function skipParenthesized(tokens, start) {
+  let cursor = start;
+  let depth = 0;
+  while (cursor < tokens.length) {
+    if (tokens[cursor] === "(") {
+      depth += 1;
+    } else if (tokens[cursor] === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return cursor + 1;
+      }
+    }
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function readFieldType(tokens, start) {
+  let cursor = start;
+  if (tokens[cursor] === "[") {
+    cursor += 1;
+    if (!NAME_TOKEN_PATTERN.test(tokens[cursor] ?? "")) {
+      return;
+    }
+    cursor += 1;
+    if (tokens[cursor] === "!") {
+      cursor += 1;
+    }
+    if (tokens[cursor] !== "]") {
+      return;
+    }
+    cursor += 1;
+  } else if (NAME_TOKEN_PATTERN.test(tokens[cursor] ?? "")) {
+    cursor += 1;
+  } else {
+    return;
+  }
+
+  if (tokens[cursor] === "!") {
+    cursor += 1;
+  }
+
+  return { cursor, type: tokens.slice(start, cursor).join("") };
+}
+
 function parseFields(body, scalars) {
   const fields = [];
-  const lines = body.split("\n");
+  const tokens = [...body.matchAll(FIELD_TOKEN_PATTERN)].map(
+    (match) => match[0]
+  );
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    const name = tokens[index];
+    if (name === "@") {
+      const argumentStart = index + 2;
+      index =
+        (tokens[argumentStart] === "("
+          ? skipParenthesized(tokens, argumentStart)
+          : argumentStart) - 1;
+      continue;
+    }
+    if (!NAME_TOKEN_PATTERN.test(name)) {
       continue;
     }
 
-    // Match: fieldName: Type or fieldName(args): Type
-    const fieldMatch = FIELD_PATTERN.exec(trimmed);
-    if (fieldMatch) {
-      const [, name, type] = fieldMatch;
-      fields.push({ name, type: resolveType(type.trim(), scalars) });
+    let cursor = index + 1;
+    if (tokens[cursor] === "(") {
+      cursor = skipParenthesized(tokens, cursor);
+    }
+
+    if (tokens[cursor] !== ":") {
+      continue;
+    }
+
+    const fieldType = readFieldType(tokens, cursor + 1);
+    if (fieldType) {
+      fields.push({ name, type: resolveType(fieldType.type, scalars) });
+      index = fieldType.cursor - 1;
     }
   }
 

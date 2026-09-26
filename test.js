@@ -36,6 +36,27 @@ test("extracts multiple types", (t) => {
   t.true(result.includes("export interface Post"));
 });
 
+test("extracts multiple fields from compact SDL", (t) => {
+  const result = pluckTypes(
+    "type User { id: ID! name: String! email: String }"
+  );
+
+  t.true(result.includes("id: string;"));
+  t.true(result.includes("name: string;"));
+  t.true(result.includes("email: string | null;"));
+  t.false(result.includes("ID! name:"));
+});
+
+test("extracts compact fields with arguments and directives", (t) => {
+  const result = pluckTypes(
+    'type Query { user(id: ID!): User @deprecated(reason: "legacy") users: [User!]! }'
+  );
+
+  t.true(result.includes("user: User | null;"));
+  t.true(result.includes("users: User[];"));
+  t.false(result.includes("reason:"));
+});
+
 // Required fields (!)
 
 test("non-null fields do not have null union", (t) => {
