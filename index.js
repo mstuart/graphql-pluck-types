@@ -20,7 +20,7 @@ const FIELD_PUNCTUATION = new Set([
   "}",
 ]);
 const NAME_TOKEN_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/v;
-const WHITESPACE_PATTERN = /\s/v;
+const IGNORED_CHARACTER_PATTERN = /[\s,]/v;
 
 function stripComments(sdl) {
   let cleaned = "";
@@ -241,9 +241,9 @@ function parseFields(body, scalars) {
   return fields;
 }
 
-function skipWhitespace(source, start) {
+function skipIgnoredCharacters(source, start) {
   let cursor = start;
-  while (WHITESPACE_PATTERN.test(source[cursor] ?? "")) {
+  while (IGNORED_CHARACTER_PATTERN.test(source[cursor] ?? "")) {
     cursor += 1;
   }
   return cursor;
@@ -309,7 +309,7 @@ function skipDirective(source, start) {
     return;
   }
 
-  const cursor = skipWhitespace(source, name.cursor);
+  const cursor = skipIgnoredCharacters(source, name.cursor);
   return source[cursor] === "("
     ? skipParenthesizedSource(source, cursor)
     : cursor;
@@ -321,9 +321,9 @@ function skipImplementsClause(source, start) {
     return start;
   }
 
-  let cursor = skipWhitespace(source, clause.cursor);
+  let cursor = skipIgnoredCharacters(source, clause.cursor);
   if (source[cursor] === "&") {
-    cursor = skipWhitespace(source, cursor + 1);
+    cursor = skipIgnoredCharacters(source, cursor + 1);
   }
 
   const firstInterface = readName(source, cursor);
@@ -331,22 +331,25 @@ function skipImplementsClause(source, start) {
     return;
   }
   const { cursor: firstInterfaceCursor } = firstInterface;
-  cursor = skipWhitespace(source, firstInterfaceCursor);
+  cursor = skipIgnoredCharacters(source, firstInterfaceCursor);
 
   while (source[cursor] === "&") {
-    const interfaceName = readName(source, skipWhitespace(source, cursor + 1));
+    const interfaceName = readName(
+      source,
+      skipIgnoredCharacters(source, cursor + 1)
+    );
     if (!interfaceName) {
       return;
     }
     const { cursor: interfaceCursor } = interfaceName;
-    cursor = skipWhitespace(source, interfaceCursor);
+    cursor = skipIgnoredCharacters(source, interfaceCursor);
   }
 
   return cursor;
 }
 
 function readDefinitionOpening(source, start, kind) {
-  let cursor = skipWhitespace(source, start);
+  let cursor = skipIgnoredCharacters(source, start);
 
   if (kind === "type") {
     const next = skipImplementsClause(source, cursor);
@@ -361,7 +364,7 @@ function readDefinitionOpening(source, start, kind) {
     if (next === undefined) {
       return;
     }
-    cursor = skipWhitespace(source, next);
+    cursor = skipIgnoredCharacters(source, next);
   }
 
   return source[cursor] === "{" ? cursor : undefined;
@@ -387,7 +390,7 @@ function parseDefinitions(source) {
       continue;
     }
 
-    const name = readName(source, skipWhitespace(source, cursor));
+    const name = readName(source, skipIgnoredCharacters(source, cursor));
     const opening = name
       ? readDefinitionOpening(source, name.cursor, kindValue)
       : undefined;

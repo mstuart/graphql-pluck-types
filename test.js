@@ -107,7 +107,7 @@ test("recognizes definition keywords only in definition positions", (t) => {
 
 test("extracts types with implements clauses and directives", (t) => {
   const result = pluckTypes(`
-    type User implements & Node @key(fields: "id") {
+    type User implements Node, & Resource @key(fields: "id"), {
       id: ID!
     }
     input UserFilter @oneOf {
