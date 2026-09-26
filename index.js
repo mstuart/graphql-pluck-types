@@ -21,9 +21,6 @@ const FIELD_PUNCTUATION = new Set([
 ]);
 const NAME_TOKEN_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/v;
 const WHITESPACE_PATTERN = /\s/v;
-const NON_NULL_INNER_PATTERN = /^(.+)!$/v;
-const NON_NULL_LIST_PATTERN = /^\[(.+)\]!$/v;
-const NULLABLE_LIST_PATTERN = /^\[(.+)\]$/v;
 
 function stripComments(sdl) {
   let cleaned = "";
@@ -48,44 +45,19 @@ function stripComments(sdl) {
 
 function resolveType(typeString, scalars) {
   const trimmed = typeString.trim();
+  const isNonNull = trimmed.endsWith("!");
+  const baseType = isNonNull ? trimmed.slice(0, -1) : trimmed;
 
-  // [Type!]!
-  const nonNullListMatch = NON_NULL_LIST_PATTERN.exec(trimmed);
-  if (nonNullListMatch) {
-    const [, inner] = nonNullListMatch;
-    const nonNullInnerMatch = NON_NULL_INNER_PATTERN.exec(inner);
-    if (nonNullInnerMatch) {
-      const resolved = resolveBaseType(nonNullInnerMatch[1], scalars);
-      return `${resolved}[]`;
-    }
-
-    const resolved = resolveBaseType(inner, scalars);
-    return `Array<${resolved} | null>`;
+  if (baseType.startsWith("[") && baseType.endsWith("]")) {
+    const resolvedInner = resolveType(baseType.slice(1, -1), scalars);
+    const resolvedList = resolvedInner.includes(" | ")
+      ? `Array<${resolvedInner}>`
+      : `${resolvedInner}[]`;
+    return isNonNull ? resolvedList : `${resolvedList} | null`;
   }
 
-  // [Type!] or [Type]
-  const nullableListMatch = NULLABLE_LIST_PATTERN.exec(trimmed);
-  if (nullableListMatch) {
-    const [, inner] = nullableListMatch;
-    const nonNullInnerMatch = NON_NULL_INNER_PATTERN.exec(inner);
-    if (nonNullInnerMatch) {
-      const resolved = resolveBaseType(nonNullInnerMatch[1], scalars);
-      return `${resolved}[] | null`;
-    }
-
-    const resolved = resolveBaseType(inner, scalars);
-    return `Array<${resolved} | null> | null`;
-  }
-
-  // Type!
-  const nonNullMatch = NON_NULL_INNER_PATTERN.exec(trimmed);
-  if (nonNullMatch) {
-    return resolveBaseType(nonNullMatch[1], scalars);
-  }
-
-  // Type (nullable by default in GraphQL)
-  const resolved = resolveBaseType(trimmed, scalars);
-  return `${resolved} | null`;
+  const resolved = resolveBaseType(baseType, scalars);
+  return isNonNull ? resolved : `${resolved} | null`;
 }
 
 function resolveBaseType(typeName, scalars) {
@@ -210,18 +182,11 @@ function skipDefaultValue(tokens, start) {
 function readFieldType(tokens, start) {
   let cursor = start;
   if (tokens[cursor] === "[") {
-    cursor += 1;
-    if (!NAME_TOKEN_PATTERN.test(tokens[cursor] ?? "")) {
+    const inner = readFieldType(tokens, cursor + 1);
+    if (!inner || tokens[inner.cursor] !== "]") {
       return;
     }
-    cursor += 1;
-    if (tokens[cursor] === "!") {
-      cursor += 1;
-    }
-    if (tokens[cursor] !== "]") {
-      return;
-    }
-    cursor += 1;
+    cursor = inner.cursor + 1;
   } else if (NAME_TOKEN_PATTERN.test(tokens[cursor] ?? "")) {
     cursor += 1;
   } else {
