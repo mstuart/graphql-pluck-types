@@ -458,6 +458,21 @@ test("custom scalars override defaults", (t) => {
   t.true(result.includes("name: custom;"));
 });
 
+test("does not treat inherited object properties as scalar mappings", (t) => {
+  const result = pluckTypes(`
+    scalar toString
+    type constructor { id: ID! }
+    type Query {
+      text: toString!
+      object: constructor!
+    }
+  `);
+
+  t.true(result.includes("text: toString;"));
+  t.true(result.includes("object: constructor;"));
+  t.false(result.includes("[native code]"));
+});
+
 test("handles no options argument", (t) => {
   const sdl = "type Foo { id: ID! }";
   t.notThrows(() => pluckTypes(sdl));

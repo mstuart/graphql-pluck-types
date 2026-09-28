@@ -62,7 +62,7 @@ function resolveType(typeString, scalars) {
 
 function resolveBaseType(typeName, scalars) {
   const trimmed = typeName.trim();
-  return scalars[trimmed] ?? trimmed;
+  return Object.hasOwn(scalars, trimmed) ? scalars[trimmed] : trimmed;
 }
 
 function isNameStart(character) {
