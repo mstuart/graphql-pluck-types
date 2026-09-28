@@ -126,6 +126,24 @@ test("extracts types with implements clauses and directives", (t) => {
   t.true(result.includes("ADMIN = 'ADMIN',"));
 });
 
+test("extracts GraphQL interface definitions", (t) => {
+  const result = pluckTypes(`
+    interface Resource implements Node @key(fields: "id") {
+      id: ID!
+      url: String
+    }
+    type Image implements Resource & Node {
+      id: ID!
+      url: String
+    }
+  `);
+
+  t.true(result.includes("export interface Resource"));
+  t.true(result.includes("id: string;"));
+  t.true(result.includes("url: string | null;"));
+  t.true(result.includes("export interface Image"));
+});
+
 // Required fields (!)
 
 test("non-null fields do not have null union", (t) => {

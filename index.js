@@ -6,7 +6,7 @@ const defaultScalars = {
   String: "string",
 };
 
-const DEFINITION_KINDS = new Set(["enum", "input", "type"]);
+const DEFINITION_KINDS = new Set(["enum", "input", "interface", "type"]);
 const FIELD_PUNCTUATION = new Set([
   "!",
   "(",
@@ -351,7 +351,7 @@ function skipImplementsClause(source, start) {
 function readDefinitionOpening(source, start, kind) {
   let cursor = skipIgnoredCharacters(source, start);
 
-  if (kind === "type") {
+  if (kind === "interface" || kind === "type") {
     const next = skipImplementsClause(source, cursor);
     if (next === undefined) {
       return;
