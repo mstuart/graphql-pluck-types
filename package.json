@@ -41,7 +41,7 @@
     "@biomejs/biome": "2.5.15",
     "ava": "^8",
     "tsd": "^0.33",
-    "ultracite": "7.12.2"
+    "ultracite": "7.12.4"
   },
   "engines": {
     "node": ">=22"
