@@ -32,8 +32,13 @@ function stripComments(sdl) {
       cleaned += sdl.slice(cursor, end);
       cursor = end;
     } else if (sdl[cursor] === "#") {
-      const newline = sdl.indexOf("\n", cursor);
-      cursor = newline === -1 ? sdl.length : newline;
+      while (
+        cursor < sdl.length &&
+        sdl[cursor] !== "\n" &&
+        sdl[cursor] !== "\r"
+      ) {
+        cursor += 1;
+      }
     } else {
       cleaned += sdl[cursor];
       cursor += 1;

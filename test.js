@@ -331,6 +331,43 @@ test("default scalar mappings work", (t) => {
 
 // Comments in SDL are ignored
 
+for (const [name, newline] of [
+  ["LF", "\n"],
+  ["CRLF", "\r\n"],
+  ["CR", "\r"],
+]) {
+  test(`preserves definitions and fields after ${name} comments`, (t) => {
+    const sdl = [
+      "# schema comment",
+      "type User {",
+      "id: ID! # field comment",
+      "name: String!",
+      "}",
+      "# before enum",
+      "enum Role {",
+      "ADMIN # value comment",
+      "USER",
+      "}",
+      "# trailing comment without a line terminator",
+    ].join(newline);
+
+    t.is(
+      pluckTypes(sdl),
+      "export interface User {\n\tid: string;\n\tname: string;\n}\n\nexport enum Role {\n\tADMIN = 'ADMIN',\n\tUSER = 'USER',\n}\n"
+    );
+  });
+}
+
+test("ends inline comments at CR in mixed-line-ending schemas", (t) => {
+  const sdl =
+    'type User {\n id: ID! # field comment\r name: String! @deprecated(reason: "use #displayName")\n}\n';
+
+  t.is(
+    pluckTypes(sdl),
+    "export interface User {\n\tid: string;\n\tname: string;\n}\n"
+  );
+});
+
 test("ignores comments in SDL", (t) => {
   const sdl = `
 		# This is a comment
