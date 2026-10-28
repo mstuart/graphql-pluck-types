@@ -19,6 +19,7 @@ const FIELD_PUNCTUATION = new Set([
   "{",
   "}",
 ]);
+const SIMPLE_TYPE_PATTERN = /^[\w$.\[\]]+$/v;
 const NAME_TOKEN_PATTERN = /^[_A-Za-z][_0-9A-Za-z]*$/v;
 const IGNORED_CHARACTER_PATTERN = /[\s,]/v;
 
@@ -55,9 +56,9 @@ function resolveType(typeString, scalars) {
 
   if (baseType.startsWith("[") && baseType.endsWith("]")) {
     const resolvedInner = resolveType(baseType.slice(1, -1), scalars);
-    const resolvedList = resolvedInner.includes(" | ")
-      ? `Array<${resolvedInner}>`
-      : `${resolvedInner}[]`;
+    const resolvedList = SIMPLE_TYPE_PATTERN.test(resolvedInner)
+      ? `${resolvedInner}[]`
+      : `Array<${resolvedInner}>`;
     return isNonNull ? resolvedList : `${resolvedList} | null`;
   }
 
@@ -107,7 +108,9 @@ function skipQuotedString(body, start) {
   const terminator = block ? '"""' : '"';
 
   while (cursor < body.length) {
-    if (body[cursor] === "\\") {
+    if (block && body.startsWith('\\"""', cursor)) {
+      cursor += 4;
+    } else if (!block && body[cursor] === "\\") {
       cursor += 2;
     } else if (body.startsWith(terminator, cursor)) {
       return cursor + terminator.length;
